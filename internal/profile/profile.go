@@ -45,8 +45,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	tok, ok := xstoken.FromAuthorization(r.Header.Get("Authorization"))
+	auth := r.Header.Get("Authorization")
+	tok, ok := xstoken.FromAuthorization(auth)
 	if !ok {
+		// Log the scheme, never the token: the console's header format is what matters here.
+		h.log().Info("token required", "path", r.URL.Path, "host", r.Host, "auth_len", len(auth), "auth_head", auth[:min(len(auth), 12)])
 		http.Error(w, "token required", http.StatusUnauthorized)
 		return
 	}
