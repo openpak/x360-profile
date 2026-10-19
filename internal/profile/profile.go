@@ -19,7 +19,7 @@ var bodies = map[string]string{
 	"profile/settings": `{"pagingInfo":{"totalRecords":0},"version":"2013-01-01T00:00:00Z","settings":[]}`,
 }
 
-var rePath = regexp.MustCompile(`^/users/xuid\(([0-9a-fA-F]{1,16})\)/(.+)$`)
+var rePath = regexp.MustCompile(`^/users/xuid\(([0-9a-fA-F]{1,20})\)/(.+)$`)
 
 // Handler serves the profile API.
 type Handler struct {
@@ -60,7 +60,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// A user token reads only its own data (the xuid in the path is the user's online XUID).
-	if c.Kind != "user" || !strings.EqualFold(strings.TrimLeft(m[1], "0"), strings.TrimLeft(c.XUID, "0")) {
+	if c.Kind != "user" || !c.MatchesXUID(m[1]) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}

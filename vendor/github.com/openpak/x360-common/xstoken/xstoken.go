@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -21,6 +22,20 @@ type Claims struct {
 	Account  string `json:"a"`   // OpenPak account id (users only)
 	Audience string `json:"aud"` // the AppliesTo address the console asked for
 	Expires  int64  `json:"exp"` // unix seconds
+}
+
+// MatchesXUID compares a REST path's decimal XUID with the hexadecimal token
+// claim. Hexadecimal paths remain supported for existing clients.
+func (c Claims) MatchesXUID(path string) bool {
+	want, err := strconv.ParseUint(c.XUID, 16, 64)
+	if err != nil {
+		return false
+	}
+	if got, err := strconv.ParseUint(path, 10, 64); err == nil && got == want {
+		return true
+	}
+	got, err := strconv.ParseUint(path, 16, 64)
+	return err == nil && got == want
 }
 
 // Signer signs and verifies tokens with one HMAC-SHA256 key.

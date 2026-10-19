@@ -23,7 +23,11 @@ func TestEmptyReplies(t *testing.T) {
 		return rec
 	}
 	for res := range bodies {
-		rec := get("/users/xuid(0009005f5139dadb)/"+res, "XBL2.0 x="+tok)
+		rec := get("/users/xuid(2533684175035099)/"+res, "XBL2.0 x="+tok)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("decimal XUID %s: %d", res, rec.Code)
+		}
+		rec = get("/users/xuid(0009005f5139dadb)/"+res, "XBL2.0 x="+tok)
 		if rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "application/json" {
 			t.Fatalf("%s: %d", res, rec.Code)
 		}

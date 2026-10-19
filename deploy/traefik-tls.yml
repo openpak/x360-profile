@@ -1,0 +1,15 @@
+# Merge into the primary Traefik dynamic.yml, alongside existing routers/services.
+tcp:
+  routers:
+    x360-profile-tls:
+      entryPoints: [console]
+      rule: HostSNI(`profile.xboxlive.com`)
+      priority: 100
+      service: x360-profile-tls
+      tls:
+        passthrough: true
+  services:
+    x360-profile-tls:
+      loadBalancer:
+        servers:
+        - address: openpak-x360-profile:10442

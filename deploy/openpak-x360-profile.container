@@ -1,6 +1,6 @@
-# PRIMARY host. OpenPak Xbox 360 profile REST service (x360-profile), hive root LiveServiceUrl.profile = http://profile.xboxlive.com.
+# PRIMARY host. OpenPak Xbox 360 profile REST service (x360-profile), hive root LiveServiceUrl.profile = https://profile.xboxlive.com.
 # The console resolves profile.xboxlive.com through OpenPak's DNS to this host; Traefik routes Host(profile.xboxlive.com) on the
-# plain-HTTP entrypoint to :10042. Verifies the tokens x360-xsts issues (its signing key, read-only).
+# TLS passthrough entrypoint to :10442; diagnostics use the plain-HTTP entrypoint to :10042. Verifies the tokens x360-xsts issues (its signing key, read-only).
 [Unit]
 Description=OpenPak Xbox 360 profile REST service (x360-profile)
 
@@ -14,6 +14,11 @@ IP=10.89.2.237
 Environment=X360_PROFILE_ADDR=:10042
 Environment=X360_PROFILE_XSTS_KEY=/run/xsts/signing.key
 Volume=%h/openpak/deploy/x360-xsts/state/signing.key:/run/xsts/signing.key:ro,Z
+Environment=X360_SERVICE_TLS_ADDR=:10442
+Environment=X360_SERVICE_TLS_CERT=/run/tls/server.pem
+Environment=X360_SERVICE_TLS_KEY=/run/tls/server.key
+# Leaf signed by the x360-xuacs CA, which /xsig validates. Never mount the CA key here.
+Volume=%h/openpak/deploy/x360-profile/tls:/run/tls:ro,Z
 ReadOnly=true
 DropCapability=ALL
 NoNewPrivileges=true
