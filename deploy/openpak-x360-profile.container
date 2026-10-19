@@ -19,6 +19,9 @@ Environment=X360_SERVICE_TLS_CERT=/run/tls/server.pem
 Environment=X360_SERVICE_TLS_KEY=/run/tls/server.key
 # Leaf signed by the x360-xuacs CA, which /xsig validates. Never mount the CA key here.
 Volume=%h/openpak/deploy/x360-profile/tls:/run/tls:ro,Z
+EnvironmentFile=%h/openpak/deploy/x360-profile/core.env
+Environment=X360_PROFILE_STATE=/var/lib/x360-profile
+Volume=%h/openpak/deploy/x360-profile/state:/var/lib/x360-profile:rw,Z
 ReadOnly=true
 DropCapability=ALL
 NoNewPrivileges=true

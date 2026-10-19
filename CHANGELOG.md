@@ -1,5 +1,7 @@
 # Changelog
 
+- 2026-10-19: v0.9.4: use the account-core avatar as the primary 64px gamer picture, with a 32px compatibility tile and durable opaque handles.
+
 - 2026-10-19: v0.9.3: restore the first built-in dashboard picture through the gamer-picture
   setting. Xenon recovery does not run the new-account picture fallback.
 

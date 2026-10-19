@@ -26,20 +26,24 @@ var bodies = map[string]string{
 // default-picture step. The setting value is UTF-16LE including its NUL.
 const defaultPictureKey = "fffe07d10002000100010001"
 
-func defaultSettingsBody() string {
-	value := make([]byte, (len(defaultPictureKey)+1)*2)
-	for i := range defaultPictureKey {
-		value[2*i] = defaultPictureKey[i]
+func defaultSettingsBody() string { return settingsBody(defaultPictureKey, "2013-01-01T00:00:00Z") }
+
+func settingsBody(key, version string) string {
+	value := make([]byte, (len(key)+1)*2)
+	for i := range key {
+		value[2*i] = key[i]
 	}
-	return fmt.Sprintf(`{"pagingInfo":{"totalRecords":1},"version":"2013-01-01T00:00:00Z","settings":[{"titleId":4294838225,"id":1080295439,"value":"%s"}]}`, base64.StdEncoding.EncodeToString(value))
+	return fmt.Sprintf(`{"pagingInfo":{"totalRecords":1},"version":"%s","settings":[{"titleId":4294838225,"id":1080295439,"value":"%s"}]}`, version, base64.StdEncoding.EncodeToString(value))
 }
 
 var rePath = regexp.MustCompile(`^/users/xuid\(([0-9a-fA-F]{1,20})\)/(.+)$`)
 
 // Handler serves the profile API.
 type Handler struct {
-	Signer *xstoken.Signer
-	Log    *slog.Logger
+	Signer   *xstoken.Signer
+	Log      *slog.Logger
+	Core     AvatarSource
+	Pictures *PictureStore
 }
 
 func (h *Handler) log() *slog.Logger {
@@ -50,6 +54,10 @@ func (h *Handler) log() *slog.Logger {
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if strings.HasPrefix(r.URL.Path, "/global/") {
+		h.servePicture(w, r)
+		return
+	}
 	m := rePath.FindStringSubmatch(r.URL.Path)
 	if m == nil || r.Method != http.MethodGet {
 		http.NotFound(w, r)
@@ -78,6 +86,15 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if c.Kind != "user" || !c.MatchesXUID(m[1]) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
+	}
+	if h.Core != nil {
+		var err error
+		body, err = h.accountSettings(r.Context(), c.Account)
+		if err != nil {
+			h.log().Error("profile settings unavailable", "err", err)
+			http.Error(w, "profile settings unavailable", 503)
+			return
+		}
 	}
 	h.log().Info("request", "path", r.URL.Path, "query", r.URL.RawQuery, "xuid", c.XUID, "account", c.Account)
 	if !json.Valid([]byte(body)) {

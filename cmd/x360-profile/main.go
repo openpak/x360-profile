@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/openpak/x360-common/accountcore"
 	"github.com/openpak/x360-common/xstoken"
 	"github.com/openpak/x360-profile/internal/profile"
 )
@@ -37,7 +38,22 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	log.Info("x360-profile listening", "addr", ln.Addr())
-	srv := &http.Server{Handler: &profile.Handler{Signer: &xstoken.Signer{Key: key}, Log: log}, ReadHeaderTimeout: 10 * time.Second}
+	handler := &profile.Handler{Signer: &xstoken.Signer{Key: key}, Log: log}
+	if coreURL := os.Getenv("X360_PROFILE_ACCOUNT_CORE_URL"); coreURL != "" {
+		core, err := accountcore.New(coreURL, os.Getenv("X360_PROFILE_ACCOUNT_CORE_TOKEN"), nil)
+		if err != nil {
+			log.Error("account core", "err", err)
+			os.Exit(2)
+		}
+		state := os.Getenv("X360_PROFILE_STATE")
+		if state == "" {
+			log.Error("X360_PROFILE_STATE is required with account media")
+			os.Exit(2)
+		}
+		handler.Core = core
+		handler.Pictures = &profile.PictureStore{Dir: state, Key: key}
+	}
+	srv := &http.Server{Handler: handler, ReadHeaderTimeout: 10 * time.Second}
 	// XAM sends its bearer token only to HTTPS URLs. Keep the HTTP listener
 	// for diagnostics and serve console traffic through TLS passthrough.
 	var tlsSrv *http.Server
