@@ -1,6 +1,6 @@
 # x360-profile
 
-The Xbox 360 profile REST service (hive root `LiveServiceUrl.profile`): the user's profile settings the dashboard recovers after a sign-in. An empty settings list for now: a new profile has defaults only.
+The Xbox 360 profile REST service (hive root `LiveServiceUrl.profile`): the user's profile settings the dashboard recovers after a sign-in. Returns the first built-in dashboard gamer picture as a default setting. Persistent user settings and custom pictures are not implemented yet.
 
 The console reaches it through the LiveHive: `LiveServiceUrl.profile=https://profile.xboxlive.com` (x360-liveinfo) and OpenPak DNS
 resolving `profile.xboxlive.com`. Requests carry `Authorization: XBL2.0 x=<token>` from [`x360-xsts`](../x360-xsts); the token is

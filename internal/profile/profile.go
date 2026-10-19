@@ -1,11 +1,13 @@
 // Package profile serves the profile REST API of the Xbox 360 dashboard: GET /users/xuid(<xuid>)/<resource>
-// with "Authorization: XBL2.0 x=<token>" from x360-xsts. Every user starts empty, so each resource answers its
-// documented empty list; the console needs HTTP 200 and a body its parse template accepts (no
+// with "Authorization: XBL2.0 x=<token>" from x360-xsts. New users receive a built-in
+// default gamer picture; the console needs HTTP 200 and an accepted response body (no
 // continuationToken: its presence means "more pages").
 package profile
 
 import (
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"regexp"
@@ -14,9 +16,22 @@ import (
 	"github.com/openpak/x360-common/xstoken"
 )
 
-// bodies maps a resource path (after /users/xuid(<xuid>)/) to its empty reply.
+// bodies maps a resource path (after /users/xuid(<xuid>)/) to its response body.
 var bodies = map[string]string{
-	"profile/settings": `{"pagingInfo":{"totalRecords":0},"version":"2013-01-01T00:00:00Z","settings":[]}`,
+	"profile/settings": defaultSettingsBody(),
+}
+
+// New accounts use the first picture already packaged with the dashboard.
+// Xenon recovery restores pictures from settings and skips the new-account
+// default-picture step. The setting value is UTF-16LE including its NUL.
+const defaultPictureKey = "fffe07d10002000100010001"
+
+func defaultSettingsBody() string {
+	value := make([]byte, (len(defaultPictureKey)+1)*2)
+	for i := range defaultPictureKey {
+		value[2*i] = defaultPictureKey[i]
+	}
+	return fmt.Sprintf(`{"pagingInfo":{"totalRecords":1},"version":"2013-01-01T00:00:00Z","settings":[{"titleId":4294838225,"id":1080295439,"value":"%s"}]}`, base64.StdEncoding.EncodeToString(value))
 }
 
 var rePath = regexp.MustCompile(`^/users/xuid\(([0-9a-fA-F]{1,20})\)/(.+)$`)
