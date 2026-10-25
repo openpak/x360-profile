@@ -1,31 +1,35 @@
-# x360-profile
+# Xbox 360 Profile Server
 
-The Xbox 360 profile REST service (hive root `LiveServiceUrl.profile`): the user's profile settings the dashboard recovers after a sign-in. Restores the account-core avatar as the primary 64px gamer picture and provides the 32px tile required by XAM. Accounts without an avatar use the first built-in picture. Other persistent user settings are not implemented yet.
+OpenPak's Xbox 360 Profile Server.
 
-The console reaches it through the LiveHive: `LiveServiceUrl.profile=https://profile.xboxlive.com` (x360-liveinfo) and OpenPak DNS
-resolving `profile.xboxlive.com`. Requests carry `Authorization: XBL2.0 x=<token>` from [`x360-xsts`](../x360-xsts); the token is
-verified with the same signing key (`x360-common/xstoken`) and may read only its own xuid.
+| | |
+| --- | --- |
+| Network | Xbox 360 |
+| Role | Profile REST service: the user's profile settings the dashboard recovers after a sign-in |
+| Depends on | [`x360-xsts`](https://github.com/openpak/x360-xsts) (tokens), [`x360-common`](https://github.com/openpak/x360-common) (shared Go library), account core (avatars, optional) |
+| Image | `ghcr.io/openpak/x360-profile` |
+| Licence | AGPL-3.0-only |
 
-Part of OpenPak's Xbox 360 stack: one repository and one image per service around the shared Go library
-[`x360-common`](../x360-common) (`replace` + committed `vendor/`; after changing it run `go mod vendor` here and commit).
+## What it serves
 
-## Configuration
+| Endpoint | What |
+| --- | --- |
+| Profile REST (`LiveServiceUrl.profile`, `profile.xboxlive.com`) | Profile settings the dashboard recovers after a sign-in: 64px gamer picture and the 32px tile XAM requires |
+| Public picture URLs `/global/t.<title>/tile/0/<tile>` | Native game-picture keys; expose no account credentials |
 
-`X360_PROFILE_ADDR` (default `:10042`), `X360_PROFILE_XSTS_KEY` (the token signing key file, read-only). See `deploy/`.
+## Run
 
-## Build and test
+```sh
+X360_PROFILE_XSTS_KEY=/path/to/signing.key go run -mod=vendor ./cmd/x360-profile
+```
 
-`go test -mod=vendor ./...`. Tag `vX.Y.Z` and CI publishes `ghcr.io/openpak/x360-profile:latest` (amd64 + arm64).
-The response shapes come from the XAM analysis in the Wharf notes (xrl-schema-opcodes.md section 12). Licensed AGPL-3.0, see LICENSE.
+## Docs
 
-XAM sends Authorization only over HTTPS. Set `X360_SERVICE_TLS_ADDR`, `X360_SERVICE_TLS_CERT`, and
-`X360_SERVICE_TLS_KEY` to enable the separate TLS listener (TLS 1.2, RSA AES-CBC). Use an exact-host
-leaf signed by the x360-xuacs CA, so service 12 can validate it; Traefik must pass TLS through.
-The XUID in console REST paths is decimal; hexadecimal diagnostic paths are also accepted.
+- [Protocol](docs/protocol.md)
+- [Evidence](docs/evidence.md)
+- [Deploy](docs/deploy.md)
+- [Notes](docs/notes.md)
 
-Account avatars require `X360_PROFILE_ACCOUNT_CORE_URL`, `X360_PROFILE_ACCOUNT_CORE_TOKEN`
-(in the uncommitted core.env), and writable `X360_PROFILE_STATE`. The core avatar is read
-through Media.GetAvatar; it is never changed. Only opaque picture-handle mappings are stored locally.
-Public PNG URLs `/global/t.<title>/tile/0/<tile>` use native game-picture keys and expose no
-account credentials. New core avatar versions receive new handles. The LiveHive must advertise
-`StoragePictureUriRoot=profile.xboxlive.com;StoragePictureUriPort=80` (bare host, separate port).
+## Licence
+
+AGPL-3.0-only. See [LICENSE](LICENSE).
