@@ -15,3 +15,7 @@ through Media.GetAvatar; it is never changed. Only opaque picture-handle mapping
 Public PNG URLs `/global/t.<title>/tile/0/<tile>` use native game-picture keys and expose no
 account credentials. New core avatar versions receive new handles. The LiveHive must advertise
 `StoragePictureUriRoot=profile.xboxlive.com;StoragePictureUriPort=80` (bare host, separate port).
+
+## Profile settings
+
+Hive root `LiveServiceUrl.profile`. Restores the account-core avatar as the primary 64px gamer picture and provides the 32px tile required by XAM. Accounts without an avatar use the first built-in picture.
