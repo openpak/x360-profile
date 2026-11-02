@@ -26,7 +26,6 @@ X360_PROFILE_XSTS_KEY=/path/to/signing.key go run -mod=vendor ./cmd/x360-profile
 ## Docs
 
 - [Protocol](docs/protocol.md)
-- [Evidence](docs/evidence.md)
 - [Deploy](docs/deploy.md)
 - [Notes](docs/notes.md)
 
