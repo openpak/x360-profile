@@ -50,7 +50,8 @@ func TestAccountAvatarRecoveryAndPublicPictures(t *testing.T) {
 	png.Encode(&buf, src)
 	core := &avatarFixture{avatar: &accountcore.Avatar{PNG: buf.Bytes(), Version: "v1", UpdatedAtUnix: 1700000000}}
 	signer := &xstoken.Signer{Key: []byte("test-token-signing-key")}
-	store := &PictureStore{Dir: t.TempDir(), Key: signer.Key}
+	schema := pgSchema(t)
+	store := testPictures(t, schema, signer.Key)
 	h := &Handler{Signer: signer, Core: core, Pictures: store}
 	request := func(path, auth string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest("GET", path, nil)
@@ -83,7 +84,7 @@ func TestAccountAvatarRecoveryAndPublicPictures(t *testing.T) {
 	k := key.String()
 	title, _ := strconv.ParseUint(k[:8], 16, 32)
 	// Recreate the store to prove handles survive a service restart.
-	h.Pictures = &PictureStore{Dir: store.Dir, Key: store.Key}
+	h.Pictures = testPictures(t, schema, store.Key)
 	for i, size := range []int{64, 32} {
 		tile, _ := strconv.ParseUint(k[8+i*8:16+i*8], 16, 32)
 		path := fmt.Sprintf("/global/t.%x/tile/0/%x", title, tile)
@@ -122,16 +123,16 @@ func TestAccountAvatarRecoveryAndPublicPictures(t *testing.T) {
 }
 
 func TestAvatarVersionChangesPictureKey(t *testing.T) {
-	s := &PictureStore{Dir: t.TempDir(), Key: []byte("key")}
-	first, err := s.handles("account", "version1")
+	s := testPictures(t, pgSchema(t), []byte("key"))
+	first, err := s.handles(context.Background(), "account", "version1")
 	if err != nil {
 		t.Fatal(err)
 	}
-	again, err := s.handles("account", "version1")
+	again, err := s.handles(context.Background(), "account", "version1")
 	if err != nil {
 		t.Fatal(err)
 	}
-	next, err := s.handles("account", "version2")
+	next, err := s.handles(context.Background(), "account", "version2")
 	if err != nil {
 		t.Fatal(err)
 	}

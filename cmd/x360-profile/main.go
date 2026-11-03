@@ -45,13 +45,19 @@ func main() {
 			log.Error("account core", "err", err)
 			os.Exit(2)
 		}
-		state := os.Getenv("X360_PROFILE_STATE")
-		if state == "" {
-			log.Error("X360_PROFILE_STATE is required with account media")
+		// X360_PROFILE_STATE is only the old handle directory, imported once.
+		dbCtx, dbCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		pics, err := profile.OpenPictureStore(dbCtx, os.Getenv("X360_PROFILE_DATABASE_URL"), profile.Schema,
+			os.Getenv("X360_PROFILE_STATE"), key)
+		dbCancel()
+		if err != nil {
+			log.Error("state: X360_PROFILE_DATABASE_URL is required with account media and must be reachable", "err", err)
 			os.Exit(2)
 		}
+		defer pics.Close()
+		log.Info("state in Postgres", "schema", profile.Schema)
 		handler.Core = core
-		handler.Pictures = &profile.PictureStore{Dir: state, Key: key}
+		handler.Pictures = pics
 	}
 	srv := &http.Server{Handler: handler, ReadHeaderTimeout: 10 * time.Second}
 	// XAM sends its bearer token only to HTTPS URLs. Keep the HTTP listener

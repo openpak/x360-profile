@@ -11,15 +11,17 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
-	"sync"
+	"strings"
 	"time"
 
 	"github.com/openpak/x360-common/accountcore"
+	"github.com/openpak/x360-common/pgstate"
 )
 
 // AvatarSource reads the existing account avatar without modifying it.
@@ -33,20 +35,78 @@ type pictureRef struct {
 	Size    int
 }
 
-// PictureStore keeps opaque native picture handles across service restarts.
-// Avatar pixels remain in the account core and are fetched when requested.
+// Schema is the Postgres schema x360-profile owns inside the x360 database.
+const Schema = "x360_profile"
+
+// PictureStore keeps opaque native picture handles across service restarts in
+// Postgres (table pictures). Avatar pixels remain in the account core and are
+// fetched when requested.
 type PictureStore struct {
-	Dir string
+	PG  *pgstate.Store
 	Key []byte
-	mu  sync.Mutex
 }
 
-func (s *PictureStore) handles(account, version string) (string, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if err := os.MkdirAll(s.Dir, 0700); err != nil {
-		return "", err
+// OpenPictureStore opens the store in schema and creates the pictures table.
+// Handle files left by older versions in legacyDir (one JSON file per handle)
+// are imported once and left in place. An empty dsn is an error.
+func OpenPictureStore(ctx context.Context, dsn, schema, legacyDir string, key []byte) (*PictureStore, error) {
+	pg, err := pgstate.Open(ctx, dsn, schema)
+	if err != nil {
+		return nil, err
 	}
+	if _, err := pg.Pool().Exec(ctx, `CREATE TABLE IF NOT EXISTS pictures (
+		name text PRIMARY KEY, account text NOT NULL, version text NOT NULL, size int NOT NULL)`); err != nil {
+		pg.Close()
+		return nil, err
+	}
+	s := &PictureStore{PG: pg, Key: key}
+	if legacyDir != "" {
+		if n, err := s.importDir(ctx, legacyDir); err != nil {
+			pg.Close()
+			return nil, err
+		} else if n > 0 {
+			slog.Info("imported picture handles into Postgres", "files", n)
+		}
+	}
+	return s, nil
+}
+
+// Close releases the database pool.
+func (s *PictureStore) Close() { s.PG.Close() }
+
+func (s *PictureStore) importDir(ctx context.Context, dir string) (int, error) {
+	files, err := filepath.Glob(filepath.Join(dir, "*-*.json"))
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, f := range files {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			return n, err
+		}
+		var ref pictureRef
+		if json.Unmarshal(b, &ref) != nil || ref.Account == "" {
+			continue
+		}
+		name := strings.TrimSuffix(filepath.Base(f), ".json")
+		if _, err := s.PG.Pool().Exec(ctx, `INSERT INTO pictures(name,account,version,size) VALUES($1,$2,$3,$4)
+			ON CONFLICT (name) DO NOTHING`, name, ref.Account, ref.Version, ref.Size); err != nil {
+			return n, err
+		}
+		n++
+	}
+	return n, nil
+}
+
+func (s *PictureStore) lookup(ctx context.Context, name string) (pictureRef, error) {
+	var ref pictureRef
+	err := s.PG.Pool().QueryRow(ctx, `SELECT account,version,size FROM pictures WHERE name=$1`, name).
+		Scan(&ref.Account, &ref.Version, &ref.Size)
+	return ref, err
+}
+
+func (s *PictureStore) handles(ctx context.Context, account, version string) (string, error) {
 	mac := hmac.New(sha256.New, s.Key)
 	fmt.Fprintf(mac, "x360-picture\x00%s\x00%s", account, version)
 	sum := mac.Sum(nil)
@@ -59,40 +119,18 @@ func (s *PictureStore) handles(account, version string) (string, error) {
 		id   uint32
 		size int
 	}{{big, 64}, {small, 32}} {
-		name := fmt.Sprintf("%x-%x.json", title, entry.id)
+		name := fmt.Sprintf("%x-%x", title, entry.id)
 		ref := pictureRef{account, version, entry.size}
-		path := filepath.Join(s.Dir, name)
-		old, err := os.ReadFile(path)
-		if err == nil {
-			var existing pictureRef
-			if json.Unmarshal(old, &existing) != nil || existing != ref {
-				return "", fmt.Errorf("picture handle collision")
-			}
-			continue
-		}
-		if !os.IsNotExist(err) {
+		if _, err := s.PG.Pool().Exec(ctx, `INSERT INTO pictures(name,account,version,size) VALUES($1,$2,$3,$4)
+			ON CONFLICT (name) DO NOTHING`, name, account, version, entry.size); err != nil {
 			return "", err
 		}
-		data, _ := json.Marshal(ref)
-		f, err := os.CreateTemp(s.Dir, "handle-")
+		existing, err := s.lookup(ctx, name)
 		if err != nil {
 			return "", err
 		}
-		temp := f.Name()
-		_, err = f.Write(data)
-		if err == nil {
-			err = f.Sync()
-		}
-		closeErr := f.Close()
-		if err == nil {
-			err = closeErr
-		}
-		if err == nil {
-			err = os.Rename(temp, path)
-		}
-		os.Remove(temp)
-		if err != nil {
-			return "", err
+		if existing != ref {
+			return "", fmt.Errorf("picture handle collision")
 		}
 	}
 	return fmt.Sprintf("%08x%08x%08x", title, big, small), nil
@@ -114,7 +152,7 @@ func (h *Handler) accountSettings(ctx context.Context, account string) (string, 
 	if h.Pictures == nil || avatar.Version == "" {
 		return "", fmt.Errorf("picture store or avatar version unavailable")
 	}
-	key, err := h.Pictures.handles(account, avatar.Version)
+	key, err := h.Pictures.handles(ctx, account, avatar.Version)
 	if err != nil {
 		return "", err
 	}
@@ -135,9 +173,8 @@ func (h *Handler) servePicture(w http.ResponseWriter, r *http.Request) {
 	}
 	title, _ := strconv.ParseUint(match[1], 16, 32)
 	tile, _ := strconv.ParseUint(match[2], 16, 32)
-	data, err := os.ReadFile(filepath.Join(h.Pictures.Dir, fmt.Sprintf("%x-%x.json", title, tile)))
-	var ref pictureRef
-	if err != nil || json.Unmarshal(data, &ref) != nil || (ref.Size != 32 && ref.Size != 64) {
+	ref, err := h.Pictures.lookup(r.Context(), fmt.Sprintf("%x-%x", title, tile))
+	if err != nil || (ref.Size != 32 && ref.Size != 64) {
 		http.NotFound(w, r)
 		return
 	}

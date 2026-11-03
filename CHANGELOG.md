@@ -1,5 +1,9 @@
 # Changelog
 
+- 2026-11-03: v0.10.0: picture handles move to Postgres (schema `x360_profile`, table `pictures`, `X360_PROFILE_DATABASE_URL`,
+  required with account media: the service refuses to start without it). Handle files in `X360_PROFILE_STATE` are imported
+  once and left in place.
+
 - 2026-10-19: v0.9.4: use the account-core avatar as the primary 64px gamer picture, with a 32px compatibility tile and durable opaque handles.
 
 - 2026-10-19: v0.9.3: restore the first built-in dashboard picture through the gamer-picture

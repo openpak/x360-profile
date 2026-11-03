@@ -10,7 +10,7 @@ leaf signed by the x360-xuacs CA, so service 12 can validate it; Traefik must pa
 The XUID in console REST paths is decimal; hexadecimal diagnostic paths are also accepted.
 
 Account avatars require `X360_PROFILE_ACCOUNT_CORE_URL`, `X360_PROFILE_ACCOUNT_CORE_TOKEN`
-(in the uncommitted core.env), and writable `X360_PROFILE_STATE`. The core avatar is read
+(in the uncommitted core.env), and `X360_PROFILE_DATABASE_URL` (Postgres; `X360_PROFILE_STATE` is only the old handle directory, imported once). The core avatar is read
 through Media.GetAvatar; it is never changed. Only opaque picture-handle mappings are stored locally.
 Public PNG URLs `/global/t.<title>/tile/0/<tile>` use native game-picture keys and expose no
 account credentials. New core avatar versions receive new handles. The LiveHive must advertise
