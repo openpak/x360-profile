@@ -1,5 +1,7 @@
 # Changelog
 
+- 2026-11-03: v0.10.2: No secrets in logs: the `request` line logs the path only, not the query string. Test added.
+
 - 2026-11-03: v0.10.1: Every request logs one stderr line, `http <method> <path> -> <status> <duration>ms` (x360-common v0.5.1 `httplog`): no query, headers, cookies, tokens or bodies; `/healthz` skipped.
 
 - 2026-11-03: v0.10.0: picture handles move to Postgres (schema `x360_profile`, table `pictures`, `X360_PROFILE_DATABASE_URL`,

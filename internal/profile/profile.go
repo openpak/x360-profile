@@ -96,7 +96,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	h.log().Info("request", "path", r.URL.Path, "query", r.URL.RawQuery, "xuid", c.XUID, "account", c.Account)
+	h.log().Info("request", "path", r.URL.Path, "xuid", c.XUID, "account", c.Account)
 	if !json.Valid([]byte(body)) {
 		http.Error(w, "internal", http.StatusInternalServerError)
 		return
