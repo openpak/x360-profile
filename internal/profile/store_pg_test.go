@@ -69,3 +69,25 @@ func TestLegacyHandleFilesImported(t *testing.T) {
 		t.Fatalf("%+v %v", ref, err)
 	}
 }
+
+func TestEraseDeletesOnlyThatAccount(t *testing.T) {
+	ctx := context.Background()
+	s := testPictures(t, pgSchema(t), []byte("k"))
+	if _, err := s.handles(ctx, "acct-a", "v1"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.handles(ctx, "acct-b", "v1"); err != nil {
+		t.Fatal(err)
+	}
+	n, err := s.Erase(ctx, "acct-a")
+	if err != nil || n != 2 {
+		t.Fatalf("erase: %d %v", n, err)
+	}
+	if n, err := s.Erase(ctx, "acct-a"); err != nil || n != 0 {
+		t.Fatalf("second erase: %d %v", n, err)
+	}
+	var left int
+	if err := s.PG.Pool().QueryRow(ctx, `SELECT count(*) FROM pictures WHERE account='acct-b'`).Scan(&left); err != nil || left != 2 {
+		t.Fatalf("other account: %d %v", left, err)
+	}
+}

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/openpak/x360-common/accountcore"
+	"github.com/openpak/x360-common/erase"
 	"github.com/openpak/x360-common/httplog"
 	"github.com/openpak/x360-common/xstoken"
 	"github.com/openpak/x360-profile/internal/profile"
@@ -60,6 +61,13 @@ func main() {
 		handler.Core = core
 		handler.Pictures = pics
 	}
+	// Account erasure (card #120): picture handles are the only per-account rows.
+	erase.Serve(ctx, "x360-profile", func(c context.Context, account string) (int, error) {
+		if handler.Pictures != nil {
+			return handler.Pictures.Erase(c, account)
+		}
+		return 0, nil
+	})
 	srv := &http.Server{Handler: httplog.Wrap(handler), ReadHeaderTimeout: 10 * time.Second}
 	// XAM sends its bearer token only to HTTPS URLs. Keep the HTTP listener
 	// for diagnostics and serve console traffic through TLS passthrough.

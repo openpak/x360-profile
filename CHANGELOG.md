@@ -1,5 +1,7 @@
 # Changelog
 
+- 2026-11-04: v0.11.0: Account erasure (card #120). `DELETE /internal/accounts/{account_id}/data` with `Authorization: Bearer $ACCOUNT_ERASE_KEY` on a separate listener `ERASE_ADDR` (default `:9099`, container network only, never published; not served while the key is unset). Reply `{"service":"x360-profile","rows":N}`; one `account erased` log line per erasure. Deletes the account's picture handles (table `pictures`).
+
 - 2026-11-03: v0.10.2: No secrets in logs: the `request` line logs the path only, not the query string. Test added.
 
 - 2026-11-03: v0.10.1: Every request logs one stderr line, `http <method> <path> -> <status> <duration>ms` (x360-common v0.5.1 `httplog`): no query, headers, cookies, tokens or bodies; `/healthz` skipped.

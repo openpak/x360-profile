@@ -99,6 +99,15 @@ func (s *PictureStore) importDir(ctx context.Context, dir string) (int, error) {
 	return n, nil
 }
 
+// Erase deletes every picture handle of the account and returns how many.
+func (s *PictureStore) Erase(ctx context.Context, account string) (int, error) {
+	tag, err := s.PG.Pool().Exec(ctx, `DELETE FROM pictures WHERE account=$1`, account)
+	if err != nil {
+		return 0, err
+	}
+	return int(tag.RowsAffected()), nil
+}
+
 func (s *PictureStore) lookup(ctx context.Context, name string) (pictureRef, error) {
 	var ref pictureRef
 	err := s.PG.Pool().QueryRow(ctx, `SELECT account,version,size FROM pictures WHERE name=$1`, name).
